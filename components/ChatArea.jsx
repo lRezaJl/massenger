@@ -1,16 +1,99 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { GrMicrophone } from "react-icons/gr";
 import { AiOutlinePaperClip } from "react-icons/ai";
 import { MdOutlineEmojiEmotions } from "react-icons/md";
 import { IoSend } from "react-icons/io5";
-import { CiImageOn } from "react-icons/ci";
+import MessageTimestamp from './time';
+import dynamic from "next/dynamic";
+
+const EmojiPicker = dynamic(() => import('emoji-picker-react'), { ssr: false });
 
 const ChatArea = ({ contact }) => {
   const [inputValue, setInputValue] = useState("");
+  const [ws, setWs] = useState(null);
+  const [messages, setMessages] = useState([]);
+  const [roomName, setRoomName] = useState("");
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+
+  useEffect(() => {
+    const createOrJoinRoom = async () => {
+      if (contact && !ws) {
+        try {
+          const response = await fetch('/api/create-or-join-room', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${localStorage.getItem('access')}`,
+            },
+            body: JSON.stringify({ username: contact.username })
+          });
+
+          if (!response.ok) {
+            throw new Error('Failed to create or join room');
+          }
+
+          const data = await response.json();
+          const roomName = data.name;
+          setRoomName(roomName);
+
+          const webSocket = new WebSocket(`ws://localhost:8000/ws/chat/${roomName}/`);
+
+          webSocket.onmessage = (e) => {
+            const data = JSON.parse(e.data);
+
+            if (data.type === 'initial_messages') {
+              setMessages(data.messages);
+            } else if (data.type === 'chat_message') {
+              setMessages(prevMessages => [...prevMessages, data.message]);
+            }
+          };
+
+          webSocket.onopen = () => {
+            console.log('WebSocket connected');
+            setWs(webSocket);
+          };
+
+          webSocket.onclose = () => {
+            console.log('WebSocket disconnected');
+            setWs(null);
+          };
+
+        } catch (error) {
+          console.error('Error creating or joining room:', error);
+        }
+      }
+    };
+
+    createOrJoinRoom();
+
+    return () => {
+      if (ws) {
+        ws.close();
+      }
+    };
+  }, [contact, ws]);
 
   const handleChange = (e) => {
     setInputValue(e.target.value);
+  };
+
+  const handleSendMessage = () => {
+    if (inputValue && ws) {
+      ws.send(JSON.stringify({
+        message: inputValue,
+        username: localStorage.getItem('username')
+      }));
+      setInputValue("");
+    }
+  };
+
+  const handleEmojiClick = (emojiObject) => {
+    setInputValue(prevInput => prevInput + emojiObject.emoji);
+  };
+
+  const toggleEmojiPicker = () => {
+    setShowEmojiPicker(!showEmojiPicker);
   };
 
   if (!contact) {
@@ -24,45 +107,44 @@ const ChatArea = ({ contact }) => {
   }
 
   return (
-    <div className="relative flex-1 text-white bg-gradient-to-b from-purple-100 via-purple-200 to-purple-300 ">
-      <div className="w-full p-5 border-b flex items-center bg-purple-100 ">
-        <div className="avatar placeholder online mr-3">
+    <div className="relative flex flex-col h-screen flex-1 text-white bg-gradient-to-b from-purple-100 via-purple-200 to-purple-300">
+      <div className="w-full p-5 border-b flex items-center bg-purple-100">
+        <div className="avatar placeholder mr-3">
           <div className="btn rounded-badge glass bg-purple-500 text-secondaryTextColor">
             <span className="">{contact.avatar}</span>
           </div>
         </div>
-        <h2 className="text-xl text-gray/90 font-bold">{contact.name}</h2>
+        <h2 className="text-xl text-gray/90 font-bold">{contact.username}</h2>
       </div>
-      <div className="chat chat-start">
-        <div className="font-myfont chat-bubble text-secondaryTextColor ">
-          سلام
-        </div>
-      </div>
-      <div className="chat chat-start">
-        <div className="chat-bubble  text-secondaryTextColor">چطور هستی؟</div>
-      </div>
-      <div className="chat chat-end">
-        <div className="chat-bubble chat-bubble-accent text-gray">سلام</div>
-      </div>
-      <div className="chat chat-end">
-        <div className="chat-bubble chat-bubble-accent text-gray">
-          چطور هستی؟
-        </div>
-      </div>
-      {/* Add more messages as needed */}
 
-      <div
-        dir="rtl"
-        className="absolute bottom-0 w-full p-4 border-t border-purple-900 flex items-center"
-      >
+      <div className="chat-container overflow-y-scroll flex-1">
+        {messages.map((msg, index) => (
+          <div
+            key={index}
+            className={`chat flex flex-col p-5 ${
+              msg.user === localStorage.getItem('username') ? 'chat-end' : 'chat-start'
+            }`}
+          >
+            <div
+              className={`chat-bubble break-all max-w-[90%] ${
+                msg.user === localStorage.getItem('username') ? 'chat-bubble-accent' : ''
+              }`}
+            >
+              {msg.content}
+            </div>
+            <p className="text-gray chat-footer">
+              <MessageTimestamp timestamp={msg.timestamp} />
+            </p>
+          </div>
+        ))}
+      </div>
+
+      <div dir="rtl" className="w-full p-4 border-t border-purple-900 flex items-center">
         <div
-          className={` shadow-sm  rounded-full p-3
-          ${
-            inputValue
-              ? "bg-blue shadow-blue"
-              : "bg-primaryPurple shadow-secondaryColor"
-          }
-          `}
+          className={`shadow-sm rounded-full p-3 ${
+            inputValue ? 'bg-blue shadow-blue' : 'bg-primaryPurple shadow-secondaryColor'
+          }`}
+          onClick={handleSendMessage}
         >
           {inputValue ? (
             <IoSend className="text-2xl cursor-pointer text-svgColor" />
@@ -73,7 +155,7 @@ const ChatArea = ({ contact }) => {
 
         <div className="absolute right-20 dropdown dropdown-top dropdown-start">
           <div tabIndex={0} role="button" className="mr-3">
-            <AiOutlinePaperClip className="  text-3xl text-svgColor hover:text-hoverColor" />
+            <AiOutlinePaperClip className="text-3xl text-svgColor hover:text-hoverColor" />
           </div>
           <ul
             tabIndex={0}
@@ -81,7 +163,6 @@ const ChatArea = ({ contact }) => {
           >
             <li>
               <div className="flex items-center">
-                <CiImageOn className="text-2xl text-svgColor" />
                 <span className="ml-2 text-nowrap">عکس یا فیلم</span>
               </div>
             </li>
@@ -99,7 +180,15 @@ const ChatArea = ({ contact }) => {
           value={inputValue}
           onChange={handleChange}
         />
-        <MdOutlineEmojiEmotions className="absolute left-6 text-3xl  hover:text-hoverColor" />
+        <MdOutlineEmojiEmotions
+          className="absolute left-6 text-3xl hover:text-hoverColor"
+          onClick={toggleEmojiPicker}
+        />
+        {showEmojiPicker && (
+          <div className="absolute bottom-16 left-6">
+            <EmojiPicker onEmojiClick={handleEmojiClick} />
+          </div>
+        )}
       </div>
     </div>
   );
