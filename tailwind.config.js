@@ -34,7 +34,7 @@ module.exports = {
     },
     extend: {
       fontFamily: {
-        myfont: ["IRANSansWeb(FaNum)-Pack", "sans-serif"],
+        sans: ['IRANSans', 'sans-serif'],
       },
       backgroundImage: {
         "custom-gradient":

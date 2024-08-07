@@ -113,18 +113,22 @@ const ContactList = ({ onSelectContact }) => {
                     <li className="p-2 rounded-2xl mb-2 bg-gray-200">Loading...</li>
                 ) : (
                     contacts.map((contact) => (
+                        console.log(contact),
+
                         <li
                             key={contact.pk}
                             className="p-2 rounded-2xl mb-2 cursor-pointer bg-white hover:bg-primaryPurple hover:text-secondaryTextColor"
                             onClick={() => onSelectContact(contact)}
                         >
                             <div className="flex items-center">
-                                <div className="avatar placeholder">
+                                <div className={`avatar placeholder ${contact.online ? 'online' : 'offline'}`}>
                                     <div className="btn rounded-badge glass bg-purple-500 text-secondaryTextColor">
                                         {/* <span>{contact.avatar}</span> */}
+                                        <span>{contact.username[0]}</span>
                                     </div>
                                 </div>
                                 <span className="ml-2 text-textColor">{contact.username}</span>
+
                             </div>
                         </li>
                     ))
