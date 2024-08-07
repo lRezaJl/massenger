@@ -14,7 +14,6 @@ const MessageTimestamp = ({ timestamp }) => {
         timeZone: 'Asia/Tehran',
         hour: '2-digit',
         minute: '2-digit',
-        second: '2-digit'
     });
 
     // فرمت کردن زمان به صورت ساعت:دقیقه:ثانیه

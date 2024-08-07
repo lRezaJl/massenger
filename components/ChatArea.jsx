@@ -1,5 +1,4 @@
-"use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { GrMicrophone } from "react-icons/gr";
 import { AiOutlinePaperClip } from "react-icons/ai";
 import { MdOutlineEmojiEmotions } from "react-icons/md";
@@ -15,6 +14,9 @@ const ChatArea = ({ contact }) => {
   const [messages, setMessages] = useState([]);
   const [roomName, setRoomName] = useState("");
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [readMessages, setReadMessages] = useState(new Set());
+
+  const messagesEndRef = useRef(null);  // Ref برای اسکرول به انتهای چت
 
   useEffect(() => {
     const createOrJoinRoom = async () => {
@@ -46,6 +48,8 @@ const ChatArea = ({ contact }) => {
               setMessages(data.messages);
             } else if (data.type === 'chat_message') {
               setMessages(prevMessages => [...prevMessages, data.message]);
+            } else if (data.type === 'message_read_update') {
+              setReadMessages(prevReadMessages => new Set(prevReadMessages).add(data.message_id));
             }
           };
 
@@ -74,6 +78,26 @@ const ChatArea = ({ contact }) => {
     };
   }, [contact, ws]);
 
+  useEffect(() => {
+    if (ws) {
+      messages.forEach(message => {
+        if (!message.read && message.user !== localStorage.getItem('username')) {
+          ws.send(JSON.stringify({
+            type: 'message_read',
+            message_id: message.id
+          }));
+        }
+      });
+    }
+  }, [messages, ws]);
+
+  useEffect(() => {
+    // اسکرول به انتهای چت
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [messages]);
+
   const handleChange = (e) => {
     setInputValue(e.target.value);
   };
@@ -81,6 +105,7 @@ const ChatArea = ({ contact }) => {
   const handleSendMessage = () => {
     if (inputValue && ws) {
       ws.send(JSON.stringify({
+        type: 'chat_message',
         message: inputValue,
         username: localStorage.getItem('username')
       }));
@@ -127,16 +152,25 @@ const ChatArea = ({ contact }) => {
           >
             <div
               className={`chat-bubble break-all max-w-[90%] ${
-                msg.user === localStorage.getItem('username') ? 'chat-bubble-accent' : ''
+                msg.user === localStorage.getItem('username') ? 'chat-bubble-accent bg-secondaryTextColor' : 'bg-secondaryColor text-secondaryTextColor'
               }`}
             >
               {msg.content}
             </div>
-            <p className="text-gray chat-footer">
+            <p className="text-gray chat-footer pt-1">
               <MessageTimestamp timestamp={msg.timestamp} />
+              {msg.read && msg.user === localStorage.getItem('username') && (
+                <span className="text-primaryPurple pl-2">✔✔</span>
+              ) || !msg.read && msg.user === localStorage.getItem('username') && (
+                <span className="text-primaryPurple pl-2">✔</span>
+              )}
+              {readMessages.has(msg.id) && msg.user === localStorage.getItem('username') && (
+                <span className="text-primaryPurple">✔</span>
+              )}
             </p>
           </div>
         ))}
+        <div ref={messagesEndRef} /> {/* مرجع برای اسکرول به انتهای چت */}
       </div>
 
       <div dir="rtl" className="w-full p-4 border-t border-purple-900 flex items-center">
