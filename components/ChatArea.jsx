@@ -132,7 +132,7 @@ const ChatArea = ({ contact }) => {
   }
 
   return (
-    <div className="relative flex flex-col h-screen flex-1 text-white bg-gradient-to-b from-purple-100 via-purple-200 to-purple-300">
+    <div className="relative flex flex-col h-full flex-1 text-white bg-gradient-to-b from-purple-100 via-purple-200 to-purple-300">
       <div className="w-full p-5 border-b flex items-center bg-purple-100">
         <div className="avatar placeholder mr-3">
           <div className="btn rounded-badge glass bg-purple-500 text-secondaryTextColor">

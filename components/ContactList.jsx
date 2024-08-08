@@ -1,4 +1,3 @@
-'use client'
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 
@@ -40,6 +39,7 @@ const ContactList = ({ onSelectContact }) => {
         webSocket.onmessage = (e) => {
             const data = JSON.parse(e.data);
             if (data.type === 'update_contacts') {
+                console.log("Received updated contacts:", data.contacts);
                 setContacts(data.contacts);
             }
         };
@@ -91,7 +91,7 @@ const ContactList = ({ onSelectContact }) => {
     };
 
     return (
-        <div className="w-64 h-screen p-4 bg-purple-100">
+        <div className="w-64 h-full p-4 bg-purple-100">
             <h2 className="text-lg font-bold mb-4 text-textColor">Contacts</h2>
             <form onSubmit={handleSearch} className="mb-4">
                 <input
@@ -113,8 +113,6 @@ const ContactList = ({ onSelectContact }) => {
                     <li className="p-2 rounded-2xl mb-2 bg-gray-200">Loading...</li>
                 ) : (
                     contacts.map((contact) => (
-                        console.log(contact),
-
                         <li
                             key={contact.pk}
                             className="p-2 rounded-2xl mb-2 cursor-pointer bg-white hover:bg-primaryPurple hover:text-secondaryTextColor"
@@ -123,12 +121,13 @@ const ContactList = ({ onSelectContact }) => {
                             <div className="flex items-center">
                                 <div className={`avatar placeholder ${contact.online ? 'online' : 'offline'}`}>
                                     <div className="btn rounded-badge glass bg-purple-500 text-secondaryTextColor">
-                                        {/* <span>{contact.avatar}</span> */}
                                         <span>{contact.username[0]}</span>
                                     </div>
                                 </div>
                                 <span className="ml-2 text-textColor">{contact.username}</span>
-
+                                {contact.unread_count > 0 && (
+                                    <span className="rounded-full ml-5 bg-primaryPurple py-1 px-2 text-secondaryTextColor">+{contact.unread_count}</span>
+                                )}
                             </div>
                         </li>
                     ))
