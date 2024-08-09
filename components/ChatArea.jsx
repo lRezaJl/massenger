@@ -5,6 +5,7 @@ import { MdOutlineEmojiEmotions } from "react-icons/md";
 import { IoSend } from "react-icons/io5";
 import MessageTimestamp from './time';
 import dynamic from "next/dynamic";
+import axios from "axios";
 
 const EmojiPicker = dynamic(() => import('emoji-picker-react'), { ssr: false });
 
@@ -16,7 +17,7 @@ const ChatArea = ({ contact }) => {
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [readMessages, setReadMessages] = useState(new Set());
 
-  const messagesEndRef = useRef(null);  // Ref برای اسکرول به انتهای چت
+  const messagesEndRef = useRef(null);
 
   useEffect(() => {
     const createOrJoinRoom = async () => {
@@ -92,7 +93,6 @@ const ChatArea = ({ contact }) => {
   }, [messages, ws]);
 
   useEffect(() => {
-    // اسکرول به انتهای چت
     if (messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
@@ -100,6 +100,35 @@ const ChatArea = ({ contact }) => {
 
   const handleChange = (e) => {
     setInputValue(e.target.value);
+  };
+
+  const handleFileChange = (e) => {
+    const file = e.target.files[0]
+
+    if (file && ws) {
+
+      const formData = new FormData();
+      formData.append('file', file);
+
+      axios.post('/api/upload/', formData, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('access')}`,
+          'Content-Type': 'multipart/form-data',
+        },
+      })
+        .then(response => {
+          console.log(response.data);
+
+          ws.send(JSON.stringify({
+            type: 'chat_message',
+            message: response.data.file,
+            username: localStorage.getItem('username')
+          }));
+        })
+        .catch(error => console.error('Error uploading file:', error));
+    } else {
+      console.error('No file selected or WebSocket is not connected.');
+    }
   };
 
   const handleSendMessage = () => {
@@ -146,16 +175,29 @@ const ChatArea = ({ contact }) => {
         {messages.map((msg, index) => (
           <div
             key={index}
-            className={`chat flex flex-col p-5 ${
-              msg.user === localStorage.getItem('username') ? 'chat-end' : 'chat-start'
-            }`}
+            className={`chat flex flex-col p-5 ${msg.user === localStorage.getItem('username') ? 'chat-end' : 'chat-start'
+              }`}
           >
             <div
-              className={`chat-bubble break-all max-w-[90%] ${
-                msg.user === localStorage.getItem('username') ? 'chat-bubble-accent bg-secondaryTextColor' : 'bg-secondaryColor text-secondaryTextColor'
-              }`}
+              className={`chat-bubble break-all max-w-[90%] ${msg.user === localStorage.getItem('username') ? 'chat-bubble-accent bg-secondaryTextColor' : 'bg-secondaryColor text-secondaryTextColor'
+                }`}
             >
-              {msg.content}
+              {msg.content.startsWith('http') ? (
+                msg.content.match(/\.(jpg|jpeg|png|gif)$/i) ? (
+                  <img src={msg.content} alt="uploaded" className="max-w-full h-auto" />
+                ) : msg.content.match(/\.(mp4|webm|ogg)$/i) ? (
+                  <video controls className="max-w-full h-auto">
+                    <source src={msg.content} type="video/mp4" />
+                    Your browser does not support the video tag.
+                  </video>
+                ) : (
+                  <a href={msg.content} target="_blank" rel="noopener noreferrer" className="text-secondaryColor underline">
+                    {msg.content.split('/uploads/')[1]}
+                  </a>
+                )
+              ) : (
+                msg.content
+              )}
             </div>
             <p className="text-gray chat-footer pt-1">
               <MessageTimestamp timestamp={msg.timestamp} />
@@ -175,49 +217,33 @@ const ChatArea = ({ contact }) => {
 
       <div dir="rtl" className="w-full p-4 border-t border-purple-900 flex items-center">
         <div
-          className={`shadow-sm rounded-full p-3 ${
-            inputValue ? 'bg-blue shadow-blue' : 'bg-primaryPurple shadow-secondaryColor'
-          }`}
+          className={`shadow-sm rounded-full p-3 ${inputValue ? 'bg-secondaryColor shadow-secondaryColor' : 'bg-primaryPurple shadow-secondaryColor disabled'
+            }`}
           onClick={handleSendMessage}
         >
-          {inputValue ? (
-            <IoSend className="text-2xl cursor-pointer text-svgColor" />
-          ) : (
-            <GrMicrophone className="text-2xl text-svgColor" />
-          )}
+          <IoSend className="text-2xl cursor-pointer text-svgColor" />
         </div>
 
         <div className="absolute right-20 dropdown dropdown-top dropdown-start">
-          <div tabIndex={0} role="button" className="mr-3">
+          <label htmlFor="file-upload" className="mr-3 flex">
             <AiOutlinePaperClip className="text-3xl text-svgColor hover:text-hoverColor" />
-          </div>
-          <ul
-            tabIndex={0}
-            className="dropdown-content menu bg-base-100 rounded-box z-[1] w-fit p-2 shadow"
-          >
-            <li>
-              <div className="flex items-center">
-                <span className="ml-2 text-nowrap">عکس یا فیلم</span>
-              </div>
-            </li>
-            <li>
-              <a>Item 2</a>
-            </li>
-            <li>
-              <a>Item 3</a>
-            </li>
-          </ul>
+          </label>
+          <input
+            id="file-upload"
+            type="file"
+            onChange={handleFileChange}
+            className="hidden"
+          />
         </div>
         <input
-          className="w-full p-3 pr-16 mr-3 text-secondaryTextColor bg-purple-900/90 text-white rounded-full focus:outline-none"
+          className="w-full p-3 pl-12 pr-16 mr-3 text-secondaryTextColor bg-purple-900/90 text-white rounded-full focus:outline-none"
           placeholder="پیام خود را وارد کنید..."
           value={inputValue}
           onChange={handleChange}
         />
-        <MdOutlineEmojiEmotions
-          className="absolute left-6 text-3xl hover:text-hoverColor"
-          onClick={toggleEmojiPicker}
-        />
+        <button onClick={toggleEmojiPicker} className="absolute left-6 text-3xl hover:text-hoverColor">
+          <MdOutlineEmojiEmotions />
+        </button>
         {showEmojiPicker && (
           <div className="absolute bottom-16 left-6">
             <EmojiPicker onEmojiClick={handleEmojiClick} />
