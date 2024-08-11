@@ -6,12 +6,13 @@ import { IoSend } from "react-icons/io5";
 import MessageTimestamp from './time';
 import dynamic from "next/dynamic";
 import axios from "axios";
+import { IoIosArrowBack } from "react-icons/io";
 
 const EmojiPicker = dynamic(() => import('emoji-picker-react'), { ssr: false });
 
 const MESSAGES_BATCH_SIZE = 20; // تعداد پیام‌هایی که باید بارگذاری شود
 
-const ChatArea = ({ contact }) => {
+const ChatArea = ({ contact, onBack }) => {
   const [inputValue, setInputValue] = useState("");
   const [ws, setWs] = useState(null);
   const [messages, setMessages] = useState([]);
@@ -168,7 +169,6 @@ const ChatArea = ({ contact }) => {
         },
       })
         .then(response => {
-          console.log(response.data);
 
           ws.send(JSON.stringify({
             type: 'chat_message',
@@ -203,10 +203,10 @@ const ChatArea = ({ contact }) => {
   const toggleEmojiPicker = () => {
     setShowEmojiPicker(!showEmojiPicker);
   };
-  
+
   if (!contact) {
     return (
-      <div className="flex-grow flex items-center justify-center bg-secondaryTextColor">
+      <div className="flex-grow hidden md:flex items-center justify-center bg-secondaryTextColor">
         <h2 className="text-2xl font-bold text-textColor">
           یکی از مخاطبین را برای شروع چت انتخاب کنید
         </h2>
@@ -217,6 +217,9 @@ const ChatArea = ({ contact }) => {
   return (
     <div className="relative flex flex-col h-full flex-1 bg-secondaryTextColor">
       <div className="w-full p-5 border-b border-lightgray/45 flex items-center bg-secondaryTextColor">
+        <button onClick={onBack} className="btn btn-circle btn-outline hover:bg-purple-500 mr-3 text-purple-500">
+          <IoIosArrowBack />
+        </button>
         <div className="avatar placeholder mr-3">
           <div className="btn rounded-badge glass bg-purple-500 text-secondaryTextColor">
             <span>{contact.username[0]}</span>

@@ -40,7 +40,6 @@ const ContactList = ({ onSelectContact }) => {
         webSocket.onmessage = (e) => {
             const data = JSON.parse(e.data);
             if (data.type === 'update_contacts') {
-                console.log("Received updated contacts:", data.contacts);
                 setContacts(data.contacts);
             }
         };
@@ -92,7 +91,7 @@ const ContactList = ({ onSelectContact }) => {
     };
 
     return (
-        <div className="w-64 h-full p-4 bg-secondaryTextColor">
+        <div className="w-full md:w-64 h-full p-4 bg-secondaryTextColor">
             <h2 className="text-lg font-bold mb-4 text-textColor">Contacts</h2>
             <form onSubmit={handleSearch} className="mb-4">
                 <input
