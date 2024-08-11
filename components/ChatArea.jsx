@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { GrMicrophone } from "react-icons/gr";
 import { AiOutlinePaperClip } from "react-icons/ai";
 import { MdOutlineEmojiEmotions } from "react-icons/md";
@@ -9,6 +9,8 @@ import axios from "axios";
 
 const EmojiPicker = dynamic(() => import('emoji-picker-react'), { ssr: false });
 
+const MESSAGES_BATCH_SIZE = 20; // تعداد پیام‌هایی که باید بارگذاری شود
+
 const ChatArea = ({ contact }) => {
   const [inputValue, setInputValue] = useState("");
   const [ws, setWs] = useState(null);
@@ -16,8 +18,42 @@ const ChatArea = ({ contact }) => {
   const [roomName, setRoomName] = useState("");
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [readMessages, setReadMessages] = useState(new Set());
+  const [hasMoreMessages, setHasMoreMessages] = useState(true); // برای بررسی وجود پیام‌های بیشتر
+  const [loadingMessages, setLoadingMessages] = useState(false); // برای جلوگیری از بارگذاری همزمان
 
   const messagesEndRef = useRef(null);
+  const chatContainerRef = useRef(null);
+
+  const fetchMoreMessages = useCallback(() => {
+    if (loadingMessages || !hasMoreMessages) return;
+
+    setLoadingMessages(true);
+
+    if (ws) {
+      ws.send(JSON.stringify({
+        type: 'load_more_messages',
+        offset: messages.length,
+      }));
+    }
+  }, [loadingMessages, hasMoreMessages, ws, messages]);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      if (chatContainerRef.current.scrollTop === 0 && hasMoreMessages) {
+        fetchMoreMessages();
+      }
+    };
+
+    if (chatContainerRef.current) {
+      chatContainerRef.current.addEventListener('scroll', handleScroll);
+    }
+
+    return () => {
+      if (chatContainerRef.current) {
+        chatContainerRef.current.removeEventListener('scroll', handleScroll);
+      }
+    };
+  }, [fetchMoreMessages, hasMoreMessages]);
 
   useEffect(() => {
     const createOrJoinRoom = async () => {
@@ -46,9 +82,31 @@ const ChatArea = ({ contact }) => {
             const data = JSON.parse(e.data);
 
             if (data.type === 'initial_messages') {
-              setMessages(data.messages);
+              setMessages(data.messages.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp))); // معکوس کردن پیام‌ها تا جدیدترین پیام‌ها در پایین باشند
+              if (data.messages.length < MESSAGES_BATCH_SIZE) {
+                setHasMoreMessages(false);
+              }
+              // اسکرول به پایین پس از بارگذاری پیام‌ها
+              setTimeout(() => {
+                messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+              }, 100);
+            } else if (data.type === 'more_messages') {
+              if (data.messages.length < MESSAGES_BATCH_SIZE) {
+                setHasMoreMessages(false);
+              }
+              const sortedMessages = data.messages.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+              const scrollTopBeforeFetch = chatContainerRef.current.scrollHeight;
+              setMessages(prevMessages => [...sortedMessages, ...prevMessages]);
+              setLoadingMessages(false);
+              // حفظ مکان اسکرول
+              setTimeout(() => {
+                chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight - scrollTopBeforeFetch;
+              }, 100);
             } else if (data.type === 'chat_message') {
               setMessages(prevMessages => [...prevMessages, data.message]);
+              setTimeout(() => {
+                messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+              }, 100);
             } else if (data.type === 'message_read_update') {
               setReadMessages(prevReadMessages => new Set(prevReadMessages).add(data.message_id));
             }
@@ -92,21 +150,14 @@ const ChatArea = ({ contact }) => {
     }
   }, [messages, ws]);
 
-  useEffect(() => {
-    if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
-    }
-  }, [messages]);
-
   const handleChange = (e) => {
     setInputValue(e.target.value);
   };
 
   const handleFileChange = (e) => {
-    const file = e.target.files[0]
+    const file = e.target.files[0];
 
     if (file && ws) {
-
       const formData = new FormData();
       formData.append('file', file);
 
@@ -132,13 +183,16 @@ const ChatArea = ({ contact }) => {
   };
 
   const handleSendMessage = () => {
-    if (inputValue && ws) {
+    if (inputValue.trim() && ws) {
       ws.send(JSON.stringify({
         type: 'chat_message',
         message: inputValue,
         username: localStorage.getItem('username')
       }));
       setInputValue("");
+      setTimeout(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      }, 100);
     }
   };
 
@@ -149,10 +203,10 @@ const ChatArea = ({ contact }) => {
   const toggleEmojiPicker = () => {
     setShowEmojiPicker(!showEmojiPicker);
   };
-
+  
   if (!contact) {
     return (
-      <div className="flex-grow flex items-center justify-center bg-gradient-to-b from-purple-400 to-purple-300 bg-custom-gradientnt">
+      <div className="flex-grow flex items-center justify-center bg-secondaryTextColor">
         <h2 className="text-2xl font-bold text-textColor">
           یکی از مخاطبین را برای شروع چت انتخاب کنید
         </h2>
@@ -161,17 +215,17 @@ const ChatArea = ({ contact }) => {
   }
 
   return (
-    <div className="relative flex flex-col h-full flex-1 text-white bg-gradient-to-b from-purple-100 via-purple-200 to-purple-300">
-      <div className="w-full p-5 border-b flex items-center bg-purple-100">
+    <div className="relative flex flex-col h-full flex-1 bg-secondaryTextColor">
+      <div className="w-full p-5 border-b border-lightgray/45 flex items-center bg-secondaryTextColor">
         <div className="avatar placeholder mr-3">
           <div className="btn rounded-badge glass bg-purple-500 text-secondaryTextColor">
-            <span className="">{contact.avatar}</span>
+            <span>{contact.username[0]}</span>
           </div>
         </div>
         <h2 className="text-xl text-gray/90 font-bold">{contact.username}</h2>
       </div>
 
-      <div className="chat-container overflow-y-scroll flex-1">
+      <div className="chat-container overflow-y-scroll flex-1" ref={chatContainerRef}>
         {messages.map((msg, index) => (
           <div
             key={index}
@@ -179,7 +233,7 @@ const ChatArea = ({ contact }) => {
               }`}
           >
             <div
-              className={`chat-bubble break-all max-w-[90%] ${msg.user === localStorage.getItem('username') ? 'chat-bubble-accent bg-secondaryTextColor' : 'bg-secondaryColor text-secondaryTextColor'
+              className={`chat-bubble break-all max-w-[90%] ${msg.user === localStorage.getItem('username') ? 'bg-purple-400 text-secondaryTextColor ' : 'bg-secondaryColor text-secondaryTextColor'
                 }`}
             >
               {msg.content.startsWith('http') ? (
@@ -191,7 +245,7 @@ const ChatArea = ({ contact }) => {
                     Your browser does not support the video tag.
                   </video>
                 ) : (
-                  <a href={msg.content} target="_blank" rel="noopener noreferrer" className="text-secondaryColor underline">
+                  <a href={msg.content} target="_blank" rel="noopener noreferrer" className="text-secondaryTextColor underline">
                     {msg.content.split('/uploads/')[1]}
                   </a>
                 )
@@ -201,9 +255,9 @@ const ChatArea = ({ contact }) => {
             </div>
             <p className="text-gray chat-footer pt-1">
               <MessageTimestamp timestamp={msg.timestamp} />
-              {msg.read && msg.user === localStorage.getItem('username') && (
+              {(msg.read && msg.user === localStorage.getItem('username')) && (
                 <span className="text-primaryPurple pl-2">✔✔</span>
-              ) || !msg.read && msg.user === localStorage.getItem('username') && (
+              ) || (!msg.read && msg.user === localStorage.getItem('username')) && (
                 <span className="text-primaryPurple pl-2">✔</span>
               )}
               {readMessages.has(msg.id) && msg.user === localStorage.getItem('username') && (
@@ -215,7 +269,7 @@ const ChatArea = ({ contact }) => {
         <div ref={messagesEndRef} /> {/* مرجع برای اسکرول به انتهای چت */}
       </div>
 
-      <div dir="rtl" className="w-full p-4 border-t border-purple-900 flex items-center">
+      <div dir="rtl" className="w-full p-4 border-t flex items-center">
         <div
           className={`shadow-sm rounded-full p-3 ${inputValue ? 'bg-secondaryColor shadow-secondaryColor' : 'bg-primaryPurple shadow-secondaryColor disabled'
             }`}

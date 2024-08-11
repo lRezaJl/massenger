@@ -3,6 +3,7 @@ import axios from "axios";
 
 const ContactList = ({ onSelectContact }) => {
     const [contacts, setContacts] = useState([]);
+    const [selectedContact, setselectedContact] = useState();
     const [searchUsername, setSearchUsername] = useState("");
     const [isLoading, setIsLoading] = useState(false);
 
@@ -91,7 +92,7 @@ const ContactList = ({ onSelectContact }) => {
     };
 
     return (
-        <div className="w-64 h-full p-4 bg-purple-100">
+        <div className="w-64 h-full p-4 bg-secondaryTextColor">
             <h2 className="text-lg font-bold mb-4 text-textColor">Contacts</h2>
             <form onSubmit={handleSearch} className="mb-4">
                 <input
@@ -103,20 +104,20 @@ const ContactList = ({ onSelectContact }) => {
                 />
                 <button
                     type="submit"
-                    className="w-full p-2 bg-primaryPurple text-white rounded"
+                    className="w-full p-2 bg-primaryPurple rounded"
                 >
                     جستجو
                 </button>
             </form>
-            <ul className="mt-10">
+            <ul className="mt-5 flex flex-col overflow-y-auto no-scrollbar h-[82%]">
                 {isLoading ? (
                     <li className="p-2 rounded-2xl mb-2 bg-gray-200">Loading...</li>
                 ) : (
                     contacts.map((contact) => (
                         <li
                             key={contact.pk}
-                            className="p-2 rounded-2xl mb-2 cursor-pointer bg-white hover:bg-primaryPurple hover:text-secondaryTextColor"
-                            onClick={() => onSelectContact(contact)}
+                            className={`p-2 rounded-2xl mb-2 cursor-pointer hover:bg-primaryPurple ${selectedContact === contact && "bg-primaryPurple" } `}
+                            onClick={() => { onSelectContact(contact); setselectedContact(contact); }}
                         >
                             <div className="flex items-center">
                                 <div className={`avatar placeholder ${contact.online ? 'online' : 'offline'}`}>
@@ -124,7 +125,7 @@ const ContactList = ({ onSelectContact }) => {
                                         <span>{contact.username[0]}</span>
                                     </div>
                                 </div>
-                                <span className="ml-2 text-textColor">{contact.username}</span>
+                                <span className={`ml-2 ${selectedContact === contact ? "text-secondaryTextColor" : "text-textColor" } `}>{contact.username}</span>
                                 {contact.unread_count > 0 && (
                                     <span className="rounded-full ml-5 bg-primaryPurple py-1 px-2 text-secondaryTextColor">+{contact.unread_count}</span>
                                 )}
