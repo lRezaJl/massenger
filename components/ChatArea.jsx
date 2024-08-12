@@ -10,9 +10,10 @@ import { IoIosArrowBack } from "react-icons/io";
 
 const EmojiPicker = dynamic(() => import('emoji-picker-react'), { ssr: false });
 
-const MESSAGES_BATCH_SIZE = 20; // تعداد پیام‌هایی که باید بارگذاری شود
+const MESSAGES_BATCH_SIZE = 20; 
 
-const ChatArea = ({ contact, onBack }) => {
+const ChatArea = ({ contact, onBack, consultant }) => {
+
   const [inputValue, setInputValue] = useState("");
   const [ws, setWs] = useState(null);
   const [messages, setMessages] = useState([]);
@@ -58,7 +59,7 @@ const ChatArea = ({ contact, onBack }) => {
 
   useEffect(() => {
     const createOrJoinRoom = async () => {
-      if (contact && !ws) {
+      if (contact && !consultant && !ws) {
         try {
           const response = await fetch('/api/create-or-join-room', {
             method: 'POST',
@@ -66,7 +67,7 @@ const ChatArea = ({ contact, onBack }) => {
               'Content-Type': 'application/json',
               'Authorization': `Bearer ${localStorage.getItem('access')}`,
             },
-            body: JSON.stringify({ username: contact.username })
+            body: JSON.stringify({ username: contact.username, type : "without" })
           });
 
           if (!response.ok) {
@@ -126,6 +127,70 @@ const ChatArea = ({ contact, onBack }) => {
         } catch (error) {
           console.error('Error creating or joining room:', error);
         }
+      } else if (contact && consultant && !ws) {
+        
+        try {
+          const response = await fetch('/api/create-or-join-room', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${localStorage.getItem('access')}`,
+            },
+            body: JSON.stringify({ username: contact.username, consultant : consultant , type : "with" })
+          });
+
+          if (!response.ok) {
+            throw new Error('Failed to create or join room');
+          }
+
+          const data = await response.json();
+          const roomName = data.name;
+          setRoomName(roomName);
+          const webSocket = new WebSocket(`ws://localhost:8000/ws/chat/${roomName}/`);
+
+          webSocket.onmessage = (e) => {
+            const data = JSON.parse(e.data);
+
+            if (data.type === 'initial_messages') {
+              setMessages(data.messages.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp))); // معکوس کردن پیام‌ها تا جدیدترین پیام‌ها در پایین باشند
+              if (data.messages.length < MESSAGES_BATCH_SIZE) {
+                setHasMoreMessages(false);
+              }
+              setTimeout(() => {
+                messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+              }, 100);
+            } else if (data.type === 'more_messages') {
+              if (data.messages.length < MESSAGES_BATCH_SIZE) {
+                setHasMoreMessages(false);
+              }
+              const sortedMessages = data.messages.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+              const scrollTopBeforeFetch = chatContainerRef.current.scrollHeight;
+              setMessages(prevMessages => [...sortedMessages, ...prevMessages]);
+              setLoadingMessages(false);
+              setTimeout(() => {
+                chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight - scrollTopBeforeFetch;
+              }, 100);
+            } else if (data.type === 'chat_message') {
+              setMessages(prevMessages => [...prevMessages, data.message]);
+              setTimeout(() => {
+                messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+              }, 100);
+            } 
+          };
+
+          webSocket.onopen = () => {
+            console.log('WebSocket connected');
+            setWs(webSocket);
+          };
+
+          webSocket.onclose = () => {
+            console.log('WebSocket disconnected');
+            setWs(null);
+          };
+
+        } catch (error) {
+          console.error('Error creating or joining room:', error);
+        }
       }
     };
 
@@ -136,7 +201,7 @@ const ChatArea = ({ contact, onBack }) => {
         ws.close();
       }
     };
-  }, [contact, ws]);
+  }, [contact, consultant,ws]);
 
   useEffect(() => {
     if (ws) {
@@ -204,7 +269,7 @@ const ChatArea = ({ contact, onBack }) => {
     setShowEmojiPicker(!showEmojiPicker);
   };
 
-  if (!contact) {
+  if (!contact && !consultant) {
     return (
       <div className="flex-grow hidden md:flex items-center justify-center bg-secondaryTextColor">
         <h2 className="text-2xl font-bold text-textColor">
