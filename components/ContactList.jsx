@@ -81,7 +81,7 @@ const ContactList = ({ onSelectContact , onConsultants, clear }) => {
                     'Authorization': `Bearer ${localStorage.getItem('access')}`,
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ username: searchUsername }),
+                body: JSON.stringify({ username: searchUsername, type: "without" }),
             });
 
             if (!response.ok) {
