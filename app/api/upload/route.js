@@ -19,7 +19,7 @@ export async function POST(request) {
 
         // ارسال درخواست به API دیگر
         const response = await axios({
-            url: 'http://localhost:8000/api/v1/chat/upload/',
+            url: 'https://evtopback.liara.run/api/v1/chat/upload/',
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${token}`,

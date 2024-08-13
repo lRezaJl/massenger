@@ -45,7 +45,7 @@ const ContactList = ({ onSelectContact , onConsultants, clear }) => {
 
     useEffect(() => {
         const token = localStorage.getItem('access');
-        const webSocket = new WebSocket(`ws://localhost:8000/ws/contacts/?token=${token}`);
+        const webSocket = new WebSocket(`wss://evtopback.liara.run/ws/contacts/?token=${token}`);
 
         webSocket.onmessage = (e) => {
             const data = JSON.parse(e.data);

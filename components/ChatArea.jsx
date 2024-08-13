@@ -78,7 +78,7 @@ const ChatArea = ({ contact, onBack, consultant }) => {
           const roomName = data.name;
           setRoomName(roomName);
 
-          const webSocket = new WebSocket(`ws://localhost:8000/ws/chat/${roomName}/`);
+          const webSocket = new WebSocket(`wss://evtopback.liara.run/ws/chat/${roomName}/`);
 
           webSocket.onmessage = (e) => {
             const data = JSON.parse(e.data);
@@ -146,7 +146,7 @@ const ChatArea = ({ contact, onBack, consultant }) => {
           const data = await response.json();
           const roomName = data.name;
           setRoomName(roomName);
-          const webSocket = new WebSocket(`ws://localhost:8000/ws/chat/${roomName}/`);
+          const webSocket = new WebSocket(`wss://evtopback.liara.run/ws/chat/${roomName}/`);
 
           webSocket.onmessage = (e) => {
             const data = JSON.parse(e.data);

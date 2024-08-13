@@ -5,7 +5,7 @@ export async function GET(request) {
     const token = request.headers.get('Authorization')?.split(' ')[1] || ''; // فرض می‌کنیم توکن به صورت 'Bearer <token>' ارسال می‌شود
 
     try {
-        const apiUrl = 'http://localhost:8000/api/v1/chat/contacts/';
+        const apiUrl = 'https://evtopback.liara.run/api/v1/chat/contacts/';
 
         const response = await axios.get(apiUrl, {
             headers: {

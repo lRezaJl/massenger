@@ -27,7 +27,7 @@ export async function POST(request) {
 
             const consultant = body.consultant;
 
-            const response = await axios(`http://localhost:8000/api/v1/chat/create-or-join-room/`, {
+            const response = await axios(`https://evtopback.liara.run/api/v1/chat/create-or-join-room/`, {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${token}`,
@@ -41,7 +41,7 @@ export async function POST(request) {
 
         } else if (type === "without") {
 
-            const response = await axios(`http://localhost:8000/api/v1/chat/create-or-join-room/`, {
+            const response = await axios(`https://evtopback.liara.run/api/v1/chat/create-or-join-room/`, {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${token}`,

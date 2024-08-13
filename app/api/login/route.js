@@ -4,7 +4,7 @@ export async function POST(req) {
     const { username, password } = await req.json();
 
     try {
-        const response = await axios.post('http://localhost:8000/api/v1/users/login/', {
+        const response = await axios.post('https://evtopback.liara.run/api/v1/users/login/', {
             username,
             password,
         });
